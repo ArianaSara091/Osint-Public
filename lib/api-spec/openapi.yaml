@@ -1,22 +1,26 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: OSINT Research Tool API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: searches
+    description: OSINT search operations
+  - name: targets
+    description: Saved investigation targets
+  - name: posts
+    description: Public posts search
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +28,222 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /searches:
+    get:
+      operationId: listSearches
+      tags: [searches]
+      summary: List recent searches
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [domain, ip, username, email, phone, all]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: List of searches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Search"
+    post:
+      operationId: createSearch
+      tags: [searches]
+      summary: Run a new OSINT search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchInput"
+      responses:
+        "201":
+          description: Search created and results returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Search"
+
+  /searches/stats:
+    get:
+      operationId: getSearchStats
+      tags: [searches]
+      summary: Get search statistics
+      responses:
+        "200":
+          description: Search statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchStats"
+
+  /searches/{id}:
+    get:
+      operationId: getSearch
+      tags: [searches]
+      summary: Get a specific search result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Search details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Search"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteSearch
+      tags: [searches]
+      summary: Delete a search record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /targets:
+    get:
+      operationId: listTargets
+      tags: [targets]
+      summary: List saved investigation targets
+      responses:
+        "200":
+          description: List of targets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Target"
+    post:
+      operationId: createTarget
+      tags: [targets]
+      summary: Save a target for ongoing investigation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TargetInput"
+      responses:
+        "201":
+          description: Target saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+
+  /targets/{id}:
+    get:
+      operationId: getTarget
+      tags: [targets]
+      summary: Get a saved target with its search history
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Target details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateTarget
+      tags: [targets]
+      summary: Update target notes
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TargetUpdate"
+      responses:
+        "200":
+          description: Updated target
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Target"
+    delete:
+      operationId: deleteTarget
+      tags: [targets]
+      summary: Remove a saved target
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /posts/search:
+    post:
+      operationId: searchPosts
+      tags: [posts]
+      summary: Search public posts by keyword or handle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostSearchInput"
+      responses:
+        "200":
+          description: Public posts results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PublicPost"
+
+  /posts/trending:
+    get:
+      operationId: getTrendingTopics
+      tags: [posts]
+      summary: Get trending topics and keywords
+      responses:
+        "200":
+          description: Trending topics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrendingTopic"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +254,141 @@ components:
       required:
         - status
 
+    Search:
+      type: object
+      required: [id, query, type, status, createdAt]
+      properties:
+        id:
+          type: integer
+        query:
+          type: string
+        type:
+          type: string
+          enum: [domain, ip, username, email, phone]
+        status:
+          type: string
+          enum: [pending, completed, failed]
+        results:
+          type: ["object", "null"]
+        createdAt:
+          type: string
+
+    SearchInput:
+      type: object
+      required: [query, type]
+      properties:
+        query:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [domain, ip, username, email, phone]
+
+    SearchStats:
+      type: object
+      required: [total, byType, recentCount]
+      properties:
+        total:
+          type: integer
+        byType:
+          type: object
+          additionalProperties:
+            type: integer
+        recentCount:
+          type: integer
+
+    Target:
+      type: object
+      required: [id, name, value, type, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        value:
+          type: string
+        type:
+          type: string
+          enum: [domain, ip, username, email, phone, person]
+        notes:
+          type: ["string", "null"]
+        tags:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    TargetInput:
+      type: object
+      required: [name, value, type]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        value:
+          type: string
+          minLength: 1
+        type:
+          type: string
+          enum: [domain, ip, username, email, phone, person]
+        notes:
+          type: string
+        tags:
+          type: string
+
+    TargetUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        notes:
+          type: string
+        tags:
+          type: string
+
+    PublicPost:
+      type: object
+      required: [id, platform, author, content, publishedAt]
+      properties:
+        id:
+          type: string
+        platform:
+          type: string
+        author:
+          type: string
+        authorHandle:
+          type: ["string", "null"]
+        content:
+          type: string
+        publishedAt:
+          type: string
+        url:
+          type: ["string", "null"]
+        likes:
+          type: ["integer", "null"]
+        shares:
+          type: ["integer", "null"]
+
+    PostSearchInput:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 1
+        platform:
+          type: string
+          enum: [all, twitter, reddit, mastodon]
+        limit:
+          type: integer
+          default: 20
+
+    TrendingTopic:
+      type: object
+      required: [topic, count]
+      properties:
+        topic:
+          type: string
+        count:
+          type: integer
+        category:
+          type: ["string", "null"]

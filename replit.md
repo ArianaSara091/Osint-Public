@@ -1,6 +1,6 @@
-# [Project name]
+# Sentinel OSINT
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+An OSINT (Open Source Intelligence) research tool for investigating domains, IPs, usernames, emails, phones, and public social posts.
 
 ## Run & Operate
 
@@ -14,7 +14,8 @@ _Replace the heading above with the project's name, and this line with one sente
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
+- Frontend: React + Vite (artifacts/osint-app)
+- API: Express 5 (artifacts/api-server)
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
@@ -22,15 +23,28 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — OpenAPI contract (source of truth)
+- `lib/db/src/schema/searches.ts` — searches table schema
+- `lib/db/src/schema/targets.ts` — targets table schema
+- `artifacts/osint-app/src/` — React frontend (pages: dashboard, searches, targets, target-detail, posts)
+- `artifacts/api-server/src/routes/searches.ts` — search CRUD + OSINT result builder
+- `artifacts/api-server/src/routes/targets.ts` — saved targets CRUD
+- `artifacts/api-server/src/routes/posts.ts` — public posts search and trending
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- OSINT results are generated server-side (simulated) to keep the app functional without external API keys. Real integrations (Shodan, WHOIS APIs, etc.) can be swapped in per-route.
+- All DB `Date` fields are serialized to ISO strings before Zod parsing (Drizzle returns JS Date objects but OpenAPI spec expects strings).
+- Entity-shaped Zod schema names used throughout to avoid Orval TS2308 collisions.
+- Routes are split by domain (searches, targets, posts) under `artifacts/api-server/src/routes/`.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- **Dashboard** — search bar for instant OSINT queries, stats overview, recent operations, trending signals
+- **Search History** — filterable list of past queries with type badges and delete actions
+- **Saved Targets** — card registry for ongoing investigations, with notes and tags
+- **Target Dossier** — single target view with inline notes editing
+- **Public Posts** — cross-platform post scanner (Twitter, Reddit, Mastodon) by keyword
 
 ## User preferences
 
@@ -38,7 +52,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- DB `createdAt` fields must be serialized via `.toISOString()` before Zod parsing
+- Always re-run codegen after changing `lib/api-spec/openapi.yaml`
+- Use entity-shaped names for request body schemas in OpenAPI (not operation-shaped like `CreateSearchBody`)
 
 ## Pointers
 
