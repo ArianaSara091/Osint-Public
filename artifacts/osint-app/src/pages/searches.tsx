@@ -1,14 +1,16 @@
 import { useState } from "react";
-import { 
-  useListSearches, 
+import {
+  useListSearches,
   useDeleteSearch,
+  useGetSearch,
+  getGetSearchQueryKey,
 } from "@workspace/api-client-react";
-import { SearchType, ListSearchesType } from "@workspace/api-client-react/src/generated/api.schemas";
+import { type ListSearchesType } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search as SearchIcon, Globe, User, Mail, Phone, Server, AlertCircle, Trash2, Filter } from "lucide-react";
+import { Search as SearchIcon, Globe, User, Mail, Phone, Server, AlertCircle, Trash2, Filter, Shield, Zap } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -29,33 +31,33 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import SearchResultPanel from "@/components/SearchResultPanel";
 
 export default function Searches() {
   const [filterType, setFilterType] = useState<ListSearchesType | "all">("all");
-  
-  const { data: searches, isLoading, refetch } = useListSearches({ 
-    type: filterType === "all" ? undefined : filterType 
+  const [activeSearchId, setActiveSearchId] = useState<number | null>(null);
+
+  const { data: searches, isLoading, refetch } = useListSearches({
+    type: filterType === "all" ? undefined : filterType,
   });
-  
+
+  const { data: activeSearch } = useGetSearch(activeSearchId ?? 0, {
+    query: { enabled: !!activeSearchId, queryKey: getGetSearchQueryKey(activeSearchId ?? 0) },
+  });
+
   const deleteSearch = useDeleteSearch();
   const { toast } = useToast();
 
   const handleDelete = (id: number) => {
     deleteSearch.mutate({ id }, {
       onSuccess: () => {
-        toast({
-          title: "Operation deleted",
-          description: `Search record #${id} has been purged from history.`,
-        });
+        toast({ title: "Operation deleted", description: `Search record #${id} has been purged from history.` });
+        if (activeSearchId === id) setActiveSearchId(null);
         refetch();
       },
       onError: () => {
-        toast({
-          title: "Deletion failed",
-          description: "Could not purge record.",
-          variant: "destructive",
-        });
-      }
+        toast({ title: "Deletion failed", description: "Could not purge record.", variant: "destructive" });
+      },
     });
   };
 
@@ -66,6 +68,8 @@ export default function Searches() {
       case "username": return <User className="w-4 h-4" />;
       case "email": return <Mail className="w-4 h-4" />;
       case "phone": return <Phone className="w-4 h-4" />;
+      case "discord": return <Zap className="w-4 h-4" />;
+      case "breach": return <Shield className="w-4 h-4" />;
       default: return <SearchIcon className="w-4 h-4" />;
     }
   };
@@ -89,11 +93,11 @@ export default function Searches() {
           </h1>
           <p className="text-muted-foreground mt-1">Complete history of intelligence queries.</p>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select 
-            value={filterType} 
+          <Select
+            value={filterType}
             onValueChange={(val) => setFilterType(val as ListSearchesType | "all")}
           >
             <SelectTrigger className="w-[180px] bg-card border-border">
@@ -106,10 +110,16 @@ export default function Searches() {
               <SelectItem value="username">Username</SelectItem>
               <SelectItem value="email">Email</SelectItem>
               <SelectItem value="phone">Phone</SelectItem>
+              <SelectItem value="discord">Discord ID</SelectItem>
+              <SelectItem value="breach">Data Breach</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
+
+      {activeSearch?.results && (
+        <SearchResultPanel search={activeSearch} onClose={() => setActiveSearchId(null)} />
+      )}
 
       <div className="space-y-4">
         {isLoading ? (
@@ -126,7 +136,11 @@ export default function Searches() {
           </Card>
         ) : (
           searches?.map((search) => (
-            <Card key={search.id} className="bg-card/50 border-border/50 hover:border-border transition-colors group">
+            <Card
+              key={search.id}
+              className={`bg-card/50 border-border/50 hover:border-border transition-colors group cursor-pointer ${activeSearchId === search.id ? "border-primary/50" : ""}`}
+              onClick={() => setActiveSearchId(activeSearchId === search.id ? null : search.id)}
+            >
               <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-start sm:items-center gap-4">
                   <div className="p-3 bg-primary/10 rounded-md text-primary mt-1 sm:mt-0">
@@ -148,11 +162,16 @@ export default function Searches() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-2 self-end sm:self-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </AlertDialogTrigger>
@@ -165,7 +184,7 @@ export default function Searches() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction 
+                        <AlertDialogAction
                           onClick={() => handleDelete(search.id)}
                           className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-mono"
                         >

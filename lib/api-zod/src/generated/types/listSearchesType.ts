@@ -15,5 +15,7 @@ export const ListSearchesType = {
   username: 'username',
   email: 'email',
   phone: 'phone',
+  discord: 'discord',
+  breach: 'breach',
   all: 'all',
 } as const;

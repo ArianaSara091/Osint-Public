@@ -18,6 +18,8 @@ export const SearchType = {
   username: 'username',
   email: 'email',
   phone: 'phone',
+  discord: 'discord',
+  breach: 'breach',
 } as const;
 
 export type SearchStatus = typeof SearchStatus[keyof typeof SearchStatus];
@@ -53,6 +55,8 @@ export const SearchInputType = {
   username: 'username',
   email: 'email',
   phone: 'phone',
+  discord: 'discord',
+  breach: 'breach',
 } as const;
 
 export interface SearchInput {
@@ -78,6 +82,8 @@ export const TargetType = {
   username: 'username',
   email: 'email',
   phone: 'phone',
+  discord: 'discord',
+  breach: 'breach',
   person: 'person',
 } as const;
 
@@ -102,6 +108,8 @@ export const TargetInputType = {
   username: 'username',
   email: 'email',
   phone: 'phone',
+  discord: 'discord',
+  breach: 'breach',
   person: 'person',
 } as const;
 
@@ -175,6 +183,8 @@ export const ListSearchesType = {
   username: 'username',
   email: 'email',
   phone: 'phone',
+  discord: 'discord',
+  breach: 'breach',
   all: 'all',
 } as const;
 

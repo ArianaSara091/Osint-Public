@@ -15,4 +15,6 @@ export const SearchInputType = {
   username: 'username',
   email: 'email',
   phone: 'phone',
+  discord: 'discord',
+  breach: 'breach',
 } as const;

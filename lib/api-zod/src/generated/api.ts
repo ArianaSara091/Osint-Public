@@ -22,14 +22,14 @@ export const HealthCheckResponse = zod.object({
 export const listSearchesQueryLimitDefault = 20;
 
 export const ListSearchesQueryParams = zod.object({
-  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'all']).optional(),
+  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'discord', 'breach', 'all']).optional(),
   "limit": zod.coerce.number().default(listSearchesQueryLimitDefault)
 })
 
 export const ListSearchesResponseItem = zod.object({
   "id": zod.number(),
   "query": zod.string(),
-  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone']),
+  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'discord', 'breach']),
   "status": zod.enum(['pending', 'completed', 'failed']),
   "results": zod.object({
 
@@ -47,7 +47,7 @@ export const ListSearchesResponse = zod.array(ListSearchesResponseItem)
 
 export const CreateSearchBody = zod.object({
   "query": zod.string().min(1),
-  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone'])
+  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'discord', 'breach'])
 })
 
 
@@ -71,7 +71,7 @@ export const GetSearchParams = zod.object({
 export const GetSearchResponse = zod.object({
   "id": zod.number(),
   "query": zod.string(),
-  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone']),
+  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'discord', 'breach']),
   "status": zod.enum(['pending', 'completed', 'failed']),
   "results": zod.object({
 
@@ -95,7 +95,7 @@ export const ListTargetsResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "value": zod.string(),
-  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'person']),
+  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'discord', 'breach', 'person']),
   "notes": zod.string().nullish(),
   "tags": zod.string().nullish(),
   "createdAt": zod.string()
@@ -113,7 +113,7 @@ export const ListTargetsResponse = zod.array(ListTargetsResponseItem)
 export const CreateTargetBody = zod.object({
   "name": zod.string().min(1),
   "value": zod.string().min(1),
-  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'person']),
+  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'discord', 'breach', 'person']),
   "notes": zod.string().optional(),
   "tags": zod.string().optional()
 })
@@ -130,7 +130,7 @@ export const GetTargetResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "value": zod.string(),
-  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'person']),
+  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'discord', 'breach', 'person']),
   "notes": zod.string().nullish(),
   "tags": zod.string().nullish(),
   "createdAt": zod.string()
@@ -154,7 +154,7 @@ export const UpdateTargetResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "value": zod.string(),
-  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'person']),
+  "type": zod.enum(['domain', 'ip', 'username', 'email', 'phone', 'discord', 'breach', 'person']),
   "notes": zod.string().nullish(),
   "tags": zod.string().nullish(),
   "createdAt": zod.string()

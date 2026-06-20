@@ -8,46 +8,52 @@ import {
   useGetSearchStats,
   useCreateSearch,
   useGetTrendingTopics,
+  useGetSearch,
+  getGetSearchQueryKey,
 } from "@workspace/api-client-react";
-import { SearchType, SearchInputType } from "@workspace/api-client-react/src/generated/api.schemas";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { type SearchInputType } from "@workspace/api-client-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Globe, User, Mail, Phone, Server, AlertCircle, Clock, Activity, ArrowRight, BarChart, Radar } from "lucide-react";
+import { Search, Globe, User, Mail, Phone, Server, AlertCircle, Clock, Activity, ArrowRight, BarChart, Radar, Shield, Zap } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import SearchResultPanel from "@/components/SearchResultPanel";
 
 const searchFormSchema = z.object({
   query: z.string().min(1, "Query is required"),
-  type: z.enum(["domain", "ip", "username", "email", "phone"]),
+  type: z.enum(["domain", "ip", "username", "email", "phone", "discord", "breach"]),
 });
 
 type SearchFormValues = z.infer<typeof searchFormSchema>;
 
 export default function Dashboard() {
+  const [activeSearchId, setActiveSearchId] = useState<number | null>(null);
+
   const { data: stats, isLoading: isLoadingStats } = useGetSearchStats();
   const { data: recentSearches, isLoading: isLoadingSearches, refetch: refetchSearches } = useListSearches({ limit: 5 });
   const { data: trendingTopics, isLoading: isLoadingTrending } = useGetTrendingTopics();
+  const { data: activeSearch } = useGetSearch(activeSearchId ?? 0, {
+    query: { enabled: !!activeSearchId, queryKey: getGetSearchQueryKey(activeSearchId ?? 0) },
+  });
   const createSearch = useCreateSearch();
 
   const form = useForm<SearchFormValues>({
     resolver: zodResolver(searchFormSchema),
-    defaultValues: {
-      query: "",
-      type: "domain",
-    },
+    defaultValues: { query: "", type: "domain" },
   });
 
   const onSubmit = (data: SearchFormValues) => {
     createSearch.mutate(
       { data: { query: data.query, type: data.type as SearchInputType } },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
           form.reset();
           refetchSearches();
+          setActiveSearchId(result.id);
         },
       }
     );
@@ -60,6 +66,8 @@ export default function Dashboard() {
       case "username": return <User className="w-4 h-4" />;
       case "email": return <Mail className="w-4 h-4" />;
       case "phone": return <Phone className="w-4 h-4" />;
+      case "discord": return <Zap className="w-4 h-4" />;
+      case "breach": return <Shield className="w-4 h-4" />;
       default: return <Search className="w-4 h-4" />;
     }
   };
@@ -101,6 +109,8 @@ export default function Dashboard() {
                         <SelectItem value="username">Username</SelectItem>
                         <SelectItem value="email">Email</SelectItem>
                         <SelectItem value="phone">Phone</SelectItem>
+                        <SelectItem value="discord">Discord ID</SelectItem>
+                        <SelectItem value="breach">Data Breach</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -115,10 +125,16 @@ export default function Dashboard() {
                     <FormControl>
                       <div className="relative">
                         <Search className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
-                        <Input 
-                          placeholder="Enter target identifier..." 
+                        <Input
+                          placeholder={
+                            form.watch("type") === "discord"
+                              ? "Enter Discord user ID or username..."
+                              : form.watch("type") === "breach"
+                              ? "Enter email, username, or domain..."
+                              : "Enter target identifier..."
+                          }
                           className="pl-10 bg-background border-primary/20 focus:ring-primary h-12 text-md font-mono"
-                          {...field} 
+                          {...field}
                         />
                       </div>
                     </FormControl>
@@ -126,8 +142,8 @@ export default function Dashboard() {
                   </FormItem>
                 )}
               />
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="h-12 px-8 bg-primary text-primary-foreground hover:bg-primary/90 font-bold tracking-wider"
                 disabled={createSearch.isPending}
               >
@@ -137,6 +153,13 @@ export default function Dashboard() {
           </Form>
         </CardContent>
       </Card>
+
+      {activeSearch?.results && (
+        <SearchResultPanel
+          search={activeSearch}
+          onClose={() => setActiveSearchId(null)}
+        />
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="bg-card/50">
@@ -180,7 +203,7 @@ export default function Dashboard() {
             {isLoadingStats ? (
               <Skeleton className="h-8 w-full" />
             ) : (
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 {Object.entries(stats?.byType || {}).map(([type, count]) => (
                   <div key={type} className="flex items-center gap-2">
                     <span className="text-xs uppercase text-muted-foreground">{type}:</span>
@@ -204,7 +227,7 @@ export default function Dashboard() {
               View All <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-          
+
           <div className="space-y-3">
             {isLoadingSearches ? (
               Array.from({ length: 4 }).map((_, i) => (
@@ -219,7 +242,11 @@ export default function Dashboard() {
               </Card>
             ) : (
               recentSearches?.map((search) => (
-                <Card key={search.id} className="bg-card/50 border-border/50 hover:border-primary/50 transition-colors">
+                <Card
+                  key={search.id}
+                  className="bg-card/50 border-border/50 hover:border-primary/50 transition-colors cursor-pointer"
+                  onClick={() => setActiveSearchId(activeSearchId === search.id ? null : search.id)}
+                >
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="p-2 bg-primary/10 rounded-md text-primary">
@@ -249,7 +276,7 @@ export default function Dashboard() {
             <Activity className="w-5 h-5 text-primary" />
             TRENDING_SIGNALS
           </h2>
-          
+
           <Card className="bg-card/50 border-border/50">
             <CardContent className="p-0">
               {isLoadingTrending ? (
@@ -270,7 +297,7 @@ export default function Dashboard() {
                         <div className="text-xs font-mono text-muted-foreground w-4">{i + 1}.</div>
                         <div>
                           <div className="font-medium">{topic.topic}</div>
-                          <div className="text-xs text-muted-foreground">{topic.category || 'General'}</div>
+                          <div className="text-xs text-muted-foreground">{topic.category || "General"}</div>
                         </div>
                       </div>
                       <div className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded">

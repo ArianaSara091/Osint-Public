@@ -39,7 +39,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [domain, ip, username, email, phone, all]
+            enum: [domain, ip, username, email, phone, discord, breach, all]
         - name: limit
           in: query
           schema:
@@ -264,7 +264,7 @@ components:
           type: string
         type:
           type: string
-          enum: [domain, ip, username, email, phone]
+          enum: [domain, ip, username, email, phone, discord, breach]
         status:
           type: string
           enum: [pending, completed, failed]
@@ -282,7 +282,7 @@ components:
           minLength: 1
         type:
           type: string
-          enum: [domain, ip, username, email, phone]
+          enum: [domain, ip, username, email, phone, discord, breach]
 
     SearchStats:
       type: object
@@ -309,7 +309,7 @@ components:
           type: string
         type:
           type: string
-          enum: [domain, ip, username, email, phone, person]
+          enum: [domain, ip, username, email, phone, discord, breach, person]
         notes:
           type: ["string", "null"]
         tags:
@@ -329,7 +329,7 @@ components:
           minLength: 1
         type:
           type: string
-          enum: [domain, ip, username, email, phone, person]
+          enum: [domain, ip, username, email, phone, discord, breach, person]
         notes:
           type: string
         tags:

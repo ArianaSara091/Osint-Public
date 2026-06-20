@@ -15,5 +15,7 @@ export const TargetInputType = {
   username: 'username',
   email: 'email',
   phone: 'phone',
+  discord: 'discord',
+  breach: 'breach',
   person: 'person',
 } as const;
