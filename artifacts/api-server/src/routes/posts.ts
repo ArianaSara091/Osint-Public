@@ -1,66 +1,95 @@
 import { Router, type IRouter } from "express";
+import { eq, desc, sql } from "drizzle-orm";
+import { db, communityPostsTable } from "@workspace/db";
 import {
-  SearchPostsBody,
-  SearchPostsResponse,
   GetTrendingTopicsResponse,
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-function generatePosts(query: string, platform: string, limit: number) {
-  const platforms = platform === "all" ? ["twitter", "reddit", "mastodon"] : [platform];
-  const posts = [];
-  const authors = [
-    { name: "Alex Chen", handle: "@alexchen_sec" },
-    { name: "Sara Moran", handle: "@saramoran" },
-    { name: "DataHunter42", handle: "@datahunter42" },
-    { name: "OpenIntel", handle: "@openintel" },
-    { name: "ResearchBot", handle: "@researchbot" },
-    { name: "CyberWatcher", handle: "@cyberwatcher" },
-  ];
-  const contents = [
-    `Just discovered some interesting connections involving "${query}" — thread below`,
-    `Anyone else tracking "${query}"? Found some public records worth noting.`,
-    `Public data on "${query}" is more revealing than most people realize.`,
-    `New findings on "${query}" — all from open sources. Here's what I found:`,
-    `${query} shows up in 3 different public databases. Cross-referencing now.`,
-    `Running an analysis on "${query}" — initial results are interesting.`,
-    `The digital footprint of "${query}" spans multiple platforms. Notable patterns emerging.`,
-    `Public records for "${query}" updated. Key changes in the last 30 days.`,
-  ];
+router.get("/posts/feed", async (req, res): Promise<void> => {
+  const posts = await db
+    .select()
+    .from(communityPostsTable)
+    .orderBy(desc(communityPostsTable.createdAt));
 
-  for (let i = 0; i < Math.min(limit, 16); i++) {
-    const author = authors[i % authors.length];
-    const plat = platforms[i % platforms.length];
-    const daysAgo = Math.floor(Math.random() * 30);
-    const date = new Date();
-    date.setDate(date.getDate() - daysAgo);
-    posts.push({
-      id: `post-${Date.now()}-${i}`,
-      platform: plat,
-      author: author.name,
-      authorHandle: author.handle,
-      content: contents[i % contents.length],
-      publishedAt: date.toISOString(),
-      url: plat === "twitter" ? `https://x.com/${author.handle.slice(1)}/status/${Date.now() + i}` :
-           plat === "reddit" ? `https://reddit.com/r/OSINT/comments/${Date.now() + i}` :
-           `https://mastodon.social/${author.handle}/posts/${Date.now() + i}`,
-      likes: Math.floor(Math.random() * 500),
-      shares: Math.floor(Math.random() * 100),
-    });
+  if (posts.length > 0) {
+    await db
+      .update(communityPostsTable)
+      .set({ viewCount: sql`${communityPostsTable.viewCount} + 1` });
   }
-  return posts;
-}
 
-router.post("/posts/search", async (req, res): Promise<void> => {
-  const parsed = SearchPostsBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+  res.json(
+    posts.map((p) => ({
+      ...p,
+      createdAt: p.createdAt.toISOString(),
+    })),
+  );
+});
+
+router.post("/posts/feed", async (req, res): Promise<void> => {
+  if (!req.session.user) {
+    res.status(401).json({ error: "Not authenticated" });
     return;
   }
-  const { query, platform = "all", limit = 20 } = parsed.data;
-  const posts = generatePosts(query, platform, limit);
-  res.json(SearchPostsResponse.parse(posts));
+
+  const { content } = req.body as { content?: string };
+  if (!content || content.trim().length === 0) {
+    res.status(400).json({ error: "Content is required" });
+    return;
+  }
+  if (content.trim().length > 2000) {
+    res.status(400).json({ error: "Post too long (max 2000 characters)" });
+    return;
+  }
+
+  const user = req.session.user;
+  const [post] = await db
+    .insert(communityPostsTable)
+    .values({
+      content: content.trim(),
+      authorId: user.id,
+      authorUsername: user.username,
+      authorDisplayName: user.global_name ?? user.username,
+      authorAvatar: user.avatar ?? null,
+    })
+    .returning();
+
+  res.status(201).json({
+    ...post,
+    createdAt: post.createdAt.toISOString(),
+  });
+});
+
+router.delete("/posts/feed/:id", async (req, res): Promise<void> => {
+  if (!req.session.user) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const id = Number(req.params["id"]);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const [post] = await db
+    .select()
+    .from(communityPostsTable)
+    .where(eq(communityPostsTable.id, id));
+
+  if (!post) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+
+  if (post.authorId !== req.session.user.id) {
+    res.status(403).json({ error: "You can only delete your own posts" });
+    return;
+  }
+
+  await db.delete(communityPostsTable).where(eq(communityPostsTable.id, id));
+  res.json({ ok: true });
 });
 
 router.get("/posts/trending", async (_req, res): Promise<void> => {
