@@ -8,8 +8,6 @@ import {
   useGetSearchStats,
   useCreateSearch,
   useGetTrendingTopics,
-  useGetSearch,
-  getGetSearchQueryKey,
 } from "@workspace/api-client-react";
 import { type SearchInputType } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Globe, User, Mail, Phone, Server, AlertCircle, Clock, Activity, ArrowRight, BarChart, Radar, Shield, Zap } from "lucide-react";
+import { Search, Globe, User, Mail, Phone, Server, AlertCircle, Clock, Activity, ArrowRight, BarChart, Radar, Shield, Zap, ChevronDown, ChevronRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import SearchResultPanel from "@/components/SearchResultPanel";
 
@@ -30,15 +28,21 @@ const searchFormSchema = z.object({
 
 type SearchFormValues = z.infer<typeof searchFormSchema>;
 
+type SearchItem = {
+  id: number;
+  query: string;
+  type: string;
+  status: string;
+  results: unknown;
+  createdAt: string;
+};
+
 export default function Dashboard() {
-  const [activeSearchId, setActiveSearchId] = useState<number | null>(null);
+  const [activeSearch, setActiveSearch] = useState<SearchItem | null>(null);
 
   const { data: stats, isLoading: isLoadingStats } = useGetSearchStats();
   const { data: recentSearches, isLoading: isLoadingSearches, refetch: refetchSearches } = useListSearches({ limit: 5 });
   const { data: trendingTopics, isLoading: isLoadingTrending } = useGetTrendingTopics();
-  const { data: activeSearch } = useGetSearch(activeSearchId ?? 0, {
-    query: { enabled: !!activeSearchId, queryKey: getGetSearchQueryKey(activeSearchId ?? 0) },
-  });
   const createSearch = useCreateSearch();
 
   const form = useForm<SearchFormValues>({
@@ -52,11 +56,17 @@ export default function Dashboard() {
       {
         onSuccess: (result) => {
           form.reset();
-          refetchSearches();
-          setActiveSearchId(result.id);
+          refetchSearches().then(({ data }) => {
+            const fresh = data?.find((s) => s.id === result.id);
+            if (fresh) setActiveSearch(fresh as SearchItem);
+          });
         },
       }
     );
+  };
+
+  const handleRowClick = (search: SearchItem) => {
+    setActiveSearch((prev) => (prev?.id === search.id ? null : search));
   };
 
   const getIconForType = (type: string) => {
@@ -113,7 +123,6 @@ export default function Dashboard() {
                         <SelectItem value="breach">Data Breach</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -138,7 +147,6 @@ export default function Dashboard() {
                         />
                       </div>
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -154,25 +162,15 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {activeSearch?.results && (
-        <SearchResultPanel
-          search={activeSearch}
-          onClose={() => setActiveSearchId(null)}
-        />
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="bg-card/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <BarChart className="w-4 h-4" />
-              TOTAL SEARCHES
+              <BarChart className="w-4 h-4" /> TOTAL SEARCHES
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoadingStats ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
+            {isLoadingStats ? <Skeleton className="h-8 w-24" /> : (
               <div className="text-3xl font-bold font-mono text-primary">{stats?.total || 0}</div>
             )}
           </CardContent>
@@ -180,14 +178,11 @@ export default function Dashboard() {
         <Card className="bg-card/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Activity className="w-4 h-4" />
-              RECENT (24H)
+              <Activity className="w-4 h-4" /> RECENT (24H)
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoadingStats ? (
-              <Skeleton className="h-8 w-24" />
-            ) : (
+            {isLoadingStats ? <Skeleton className="h-8 w-24" /> : (
               <div className="text-3xl font-bold font-mono">{stats?.recentCount || 0}</div>
             )}
           </CardContent>
@@ -195,14 +190,11 @@ export default function Dashboard() {
         <Card className="col-span-2 bg-card/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Radar className="w-4 h-4" />
-              DISTRIBUTION
+              <Radar className="w-4 h-4" /> DISTRIBUTION
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {isLoadingStats ? (
-              <Skeleton className="h-8 w-full" />
-            ) : (
+            {isLoadingStats ? <Skeleton className="h-8 w-full" /> : (
               <div className="flex flex-wrap gap-4">
                 {Object.entries(stats?.byType || {}).map(([type, count]) => (
                   <div key={type} className="flex items-center gap-2">
@@ -220,19 +212,16 @@ export default function Dashboard() {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold tracking-tight font-mono flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" />
-              RECENT_OPERATIONS
+              <Clock className="w-5 h-5 text-primary" /> RECENT_OPERATIONS
             </h2>
             <Link href="/searches" className="text-sm text-primary hover:underline flex items-center gap-1">
               View All <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {isLoadingSearches ? (
-              Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))
+              Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
             ) : recentSearches?.length === 0 ? (
               <Card className="bg-card/30 border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-8 text-muted-foreground">
@@ -241,54 +230,71 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             ) : (
-              recentSearches?.map((search) => (
-                <Card
-                  key={search.id}
-                  className="bg-card/50 border-border/50 hover:border-primary/50 transition-colors cursor-pointer"
-                  onClick={() => setActiveSearchId(activeSearchId === search.id ? null : search.id)}
-                >
-                  <CardContent className="p-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 bg-primary/10 rounded-md text-primary">
-                        {getIconForType(search.type)}
-                      </div>
-                      <div>
-                        <div className="font-mono font-medium text-lg">{search.query}</div>
-                        <div className="text-xs text-muted-foreground uppercase flex items-center gap-2">
-                          <span>{search.type}</span>
-                          <span>•</span>
-                          <span>{formatDistanceToNow(new Date(search.createdAt), { addSuffix: true })}</span>
+              recentSearches?.map((search) => {
+                const isActive = activeSearch?.id === search.id;
+                return (
+                  <div key={search.id}>
+                    <Card
+                      className={`border-border/50 transition-all cursor-pointer select-none ${
+                        isActive
+                          ? "bg-primary/5 border-primary/40 rounded-b-none"
+                          : "bg-card/50 hover:border-primary/30 hover:bg-card/80"
+                      }`}
+                      onClick={() => handleRowClick(search as SearchItem)}
+                    >
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className={`p-2 rounded-md ${isActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
+                            {getIconForType(search.type)}
+                          </div>
+                          <div>
+                            <div className="font-mono font-medium text-lg">{search.query}</div>
+                            <div className="text-xs text-muted-foreground uppercase flex items-center gap-2">
+                              <span>{search.type}</span>
+                              <span>•</span>
+                              <span>{formatDistanceToNow(new Date(search.createdAt), { addSuffix: true })}</span>
+                            </div>
+                          </div>
                         </div>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className={`uppercase font-mono text-xs ${getStatusColor(search.status)}`}>
+                            {search.status}
+                          </Badge>
+                          {isActive
+                            ? <ChevronDown className="w-4 h-4 text-primary" />
+                            : <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                          }
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {isActive && activeSearch?.results && (
+                      <div className="border border-primary/40 border-t-0 rounded-b-lg overflow-hidden">
+                        <SearchResultPanel
+                          search={activeSearch}
+                          onClose={() => setActiveSearch(null)}
+                        />
                       </div>
-                    </div>
-                    <Badge variant="outline" className={`uppercase font-mono text-xs ${getStatusColor(search.status)}`}>
-                      {search.status}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              ))
+                    )}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
 
         <div className="space-y-4">
           <h2 className="text-xl font-bold tracking-tight font-mono flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" />
-            TRENDING_SIGNALS
+            <Activity className="w-5 h-5 text-primary" /> TRENDING_SIGNALS
           </h2>
-
           <Card className="bg-card/50 border-border/50">
             <CardContent className="p-0">
               {isLoadingTrending ? (
                 <div className="p-4 space-y-4">
-                  {Array.from({ length: 5 }).map((_, i) => (
-                    <Skeleton key={i} className="h-10 w-full" />
-                  ))}
+                  {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
                 </div>
               ) : trendingTopics?.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground text-sm">
-                  No significant signals detected.
-                </div>
+                <div className="p-8 text-center text-muted-foreground text-sm">No significant signals detected.</div>
               ) : (
                 <div className="divide-y divide-border/50">
                   {trendingTopics?.map((topic, i) => (

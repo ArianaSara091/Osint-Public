@@ -1,64 +1,60 @@
 import { useState } from "react";
-import {
-  useListSearches,
-  useDeleteSearch,
-  useGetSearch,
-  getGetSearchQueryKey,
-} from "@workspace/api-client-react";
+import { useListSearches, useDeleteSearch } from "@workspace/api-client-react";
 import { type ListSearchesType } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search as SearchIcon, Globe, User, Mail, Phone, Server, AlertCircle, Trash2, Filter, Shield, Zap } from "lucide-react";
+import {
+  Search as SearchIcon, Globe, User, Mail, Phone, Server,
+  AlertCircle, Trash2, Filter, Shield, Zap, ChevronDown, ChevronRight
+} from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader,
+  AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import SearchResultPanel from "@/components/SearchResultPanel";
 
+type SearchItem = {
+  id: number;
+  query: string;
+  type: string;
+  status: string;
+  results: unknown;
+  createdAt: string;
+};
+
 export default function Searches() {
   const [filterType, setFilterType] = useState<ListSearchesType | "all">("all");
-  const [activeSearchId, setActiveSearchId] = useState<number | null>(null);
+  const [activeSearch, setActiveSearch] = useState<SearchItem | null>(null);
 
   const { data: searches, isLoading, refetch } = useListSearches({
     type: filterType === "all" ? undefined : filterType,
   });
 
-  const { data: activeSearch } = useGetSearch(activeSearchId ?? 0, {
-    query: { enabled: !!activeSearchId, queryKey: getGetSearchQueryKey(activeSearchId ?? 0) },
-  });
-
   const deleteSearch = useDeleteSearch();
   const { toast } = useToast();
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
     deleteSearch.mutate({ id }, {
       onSuccess: () => {
-        toast({ title: "Operation deleted", description: `Search record #${id} has been purged from history.` });
-        if (activeSearchId === id) setActiveSearchId(null);
+        toast({ title: "Operation deleted", description: `Search record #${id} has been purged.` });
+        if (activeSearch?.id === id) setActiveSearch(null);
         refetch();
       },
       onError: () => {
         toast({ title: "Deletion failed", description: "Could not purge record.", variant: "destructive" });
       },
     });
+  };
+
+  const handleRowClick = (search: SearchItem) => {
+    setActiveSearch((prev) => (prev?.id === search.id ? null : search));
   };
 
   const getIconForType = (type: string) => {
@@ -88,18 +84,14 @@ export default function Searches() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground font-mono flex items-center gap-3">
-            <SearchIcon className="w-8 h-8 text-primary" />
-            OPERATIONS_LOG
+            <SearchIcon className="w-8 h-8 text-primary" /> OPERATIONS_LOG
           </h1>
-          <p className="text-muted-foreground mt-1">Complete history of intelligence queries.</p>
+          <p className="text-muted-foreground mt-1">Click any record to expand its full intelligence report.</p>
         </div>
 
         <div className="flex items-center gap-2">
           <Filter className="w-4 h-4 text-muted-foreground" />
-          <Select
-            value={filterType}
-            onValueChange={(val) => setFilterType(val as ListSearchesType | "all")}
-          >
+          <Select value={filterType} onValueChange={(val) => { setFilterType(val as ListSearchesType | "all"); setActiveSearch(null); }}>
             <SelectTrigger className="w-[180px] bg-card border-border">
               <SelectValue placeholder="Filter by type" />
             </SelectTrigger>
@@ -117,15 +109,9 @@ export default function Searches() {
         </div>
       </div>
 
-      {activeSearch?.results && (
-        <SearchResultPanel search={activeSearch} onClose={() => setActiveSearchId(null)} />
-      )}
-
-      <div className="space-y-4">
+      <div className="space-y-2">
         {isLoading ? (
-          Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full" />
-          ))
+          Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)
         ) : searches?.length === 0 ? (
           <Card className="bg-card/30 border-dashed">
             <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
@@ -135,68 +121,90 @@ export default function Searches() {
             </CardContent>
           </Card>
         ) : (
-          searches?.map((search) => (
-            <Card
-              key={search.id}
-              className={`bg-card/50 border-border/50 hover:border-border transition-colors group cursor-pointer ${activeSearchId === search.id ? "border-primary/50" : ""}`}
-              onClick={() => setActiveSearchId(activeSearchId === search.id ? null : search.id)}
-            >
-              <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-start sm:items-center gap-4">
-                  <div className="p-3 bg-primary/10 rounded-md text-primary mt-1 sm:mt-0">
-                    {getIconForType(search.type)}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <div className="font-mono font-bold text-xl">{search.query}</div>
-                      <Badge variant="outline" className={`uppercase font-mono text-[10px] py-0 h-5 ${getStatusColor(search.status)}`}>
-                        {search.status}
-                      </Badge>
+          searches?.map((search) => {
+            const isActive = activeSearch?.id === search.id;
+            return (
+              <div key={search.id}>
+                <Card
+                  className={`transition-all cursor-pointer select-none group ${
+                    isActive
+                      ? "bg-primary/5 border-primary/40 rounded-b-none"
+                      : "bg-card/50 border-border/50 hover:border-border hover:bg-card/80"
+                  }`}
+                  onClick={() => handleRowClick(search as SearchItem)}
+                >
+                  <CardContent className="p-4 sm:p-5 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className={`p-3 rounded-md shrink-0 ${isActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
+                        {getIconForType(search.type)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="font-mono font-bold text-xl">{search.query}</span>
+                          <Badge variant="outline" className={`uppercase font-mono text-[10px] py-0 h-5 ${getStatusColor(search.status)}`}>
+                            {search.status}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground flex items-center gap-3 mt-0.5">
+                          <span className="uppercase font-medium text-foreground/70 text-xs">{search.type}</span>
+                          <span>•</span>
+                          <span className="font-mono text-xs">{format(new Date(search.createdAt), "yyyy-MM-dd HH:mm")}</span>
+                          <span>•</span>
+                          <span className="font-mono text-xs opacity-50">#{search.id}</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground flex items-center gap-3 mt-1">
-                      <span className="uppercase font-medium text-foreground/80">{search.type}</span>
-                      <span>•</span>
-                      <span className="font-mono text-xs">{format(new Date(search.createdAt), "yyyy-MM-dd HH:mm:ss 'UTC'")}</span>
-                      <span>•</span>
-                      <span className="font-mono text-xs">ID:{search.id}</span>
-                    </div>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent className="border-destructive/20 bg-background">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Purge Record?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          This will permanently delete search record #{search.id} for "{search.query}". This action cannot be undone.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleDelete(search.id)}
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-mono"
-                        >
-                          CONFIRM_PURGE
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                    <div className="flex items-center gap-2 shrink-0">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="border-destructive/20 bg-background">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Purge Record?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Permanently delete search #{search.id} for "{search.query}"? This cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={(e) => handleDelete(search.id, e)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 font-mono"
+                            >
+                              CONFIRM_PURGE
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+
+                      {isActive
+                        ? <ChevronDown className="w-4 h-4 text-primary" />
+                        : <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      }
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {isActive && activeSearch?.results && (
+                  <div className="border border-primary/40 border-t-0 rounded-b-lg overflow-hidden">
+                    <SearchResultPanel
+                      search={activeSearch}
+                      onClose={() => setActiveSearch(null)}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </div>
