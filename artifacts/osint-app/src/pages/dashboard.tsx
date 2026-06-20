@@ -10,14 +10,17 @@ import {
   useGetTrendingTopics,
 } from "@workspace/api-client-react";
 import { type SearchInputType } from "@workspace/api-client-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Globe, User, Mail, Phone, Server, AlertCircle, Clock, Activity, ArrowRight, BarChart, Radar, Shield, Zap, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  Search, Globe, User, Mail, Phone, Server, AlertCircle, Clock,
+  Activity, ArrowRight, Shield, Zap, ChevronRight, ChevronUp,
+  CheckCircle2,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import SearchResultPanel from "@/components/SearchResultPanel";
 
@@ -37,6 +40,48 @@ type SearchItem = {
   createdAt: string;
 };
 
+const TYPE_META: Record<string, { icon: React.ReactNode; label: string; placeholder: string }> = {
+  domain:   { icon: <Globe className="w-4 h-4" />,  label: "Domain",     placeholder: "Enter domain to scan..." },
+  ip:       { icon: <Server className="w-4 h-4" />, label: "IP Address", placeholder: "Enter IP address to scan..." },
+  username: { icon: <User className="w-4 h-4" />,   label: "Username",   placeholder: "Enter username to scan..." },
+  email:    { icon: <Mail className="w-4 h-4" />,   label: "Email",      placeholder: "Enter email address to scan..." },
+  phone:    { icon: <Phone className="w-4 h-4" />,  label: "Phone",      placeholder: "Enter phone number to scan..." },
+  discord:  { icon: <Zap className="w-4 h-4" />,   label: "Discord ID", placeholder: "Enter Discord user ID or username..." },
+  breach:   { icon: <Shield className="w-4 h-4" />, label: "Data Breach",placeholder: "Enter email, username, or domain..." },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  if (status === "completed") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+        <CheckCircle2 className="w-3.5 h-3.5" />
+        Completed
+      </span>
+    );
+  }
+  if (status === "pending") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+        <Clock className="w-3.5 h-3.5" />
+        Pending
+      </span>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">
+        <AlertCircle className="w-3.5 h-3.5" />
+        Failed
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+      {status}
+    </span>
+  );
+}
+
 export default function Dashboard() {
   const [activeSearch, setActiveSearch] = useState<SearchItem | null>(null);
 
@@ -49,6 +94,13 @@ export default function Dashboard() {
     resolver: zodResolver(searchFormSchema),
     defaultValues: { query: "", type: "domain" },
   });
+
+  const currentType = form.watch("type");
+  const typeMeta = TYPE_META[currentType] ?? TYPE_META.domain;
+
+  const topType = stats?.byType
+    ? Object.entries(stats.byType).sort(([, a], [, b]) => (b as number) - (a as number))[0]?.[0]
+    : null;
 
   const onSubmit = (data: SearchFormValues) => {
     createSearch.mutate(
@@ -69,48 +121,33 @@ export default function Dashboard() {
     setActiveSearch((prev) => (prev?.id === search.id ? null : search));
   };
 
-  const getIconForType = (type: string) => {
-    switch (type) {
-      case "domain": return <Globe className="w-4 h-4" />;
-      case "ip": return <Server className="w-4 h-4" />;
-      case "username": return <User className="w-4 h-4" />;
-      case "email": return <Mail className="w-4 h-4" />;
-      case "phone": return <Phone className="w-4 h-4" />;
-      case "discord": return <Zap className="w-4 h-4" />;
-      case "breach": return <Shield className="w-4 h-4" />;
-      default: return <Search className="w-4 h-4" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "completed": return "bg-green-500/10 text-green-500 border-green-500/20";
-      case "pending": return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
-      case "failed": return "bg-red-500/10 text-red-500 border-red-500/20";
-      default: return "bg-primary/10 text-primary border-primary/20";
-    }
-  };
-
   return (
     <div className="flex-1 p-8 space-y-8 max-w-7xl mx-auto">
-      <div className="flex flex-col space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground font-mono">GLOBAL_DASHBOARD</h1>
-        <p className="text-muted-foreground">Overview of OSINT activities and recent intelligence.</p>
-      </div>
 
-      <Card className="border-primary/20 bg-card/50 backdrop-blur-sm">
-        <CardContent className="p-6">
+      {/* Search Card */}
+      <Card className="border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden">
+        <div className="px-6 pt-5 pb-2">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Initiate Investigation
+          </p>
+        </div>
+        <CardContent className="px-6 pb-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-start gap-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex items-center gap-3">
+
+              {/* Type selector with leading icon */}
               <FormField
                 control={form.control}
                 name="type"
                 render={({ field }) => (
-                  <FormItem className="w-[180px]">
+                  <FormItem className="relative w-[200px]">
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-primary z-10">
+                      {typeMeta.icon}
+                    </div>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
-                        <SelectTrigger className="bg-background border-primary/20 focus:ring-primary h-12 text-md">
-                          <SelectValue placeholder="Select type" />
+                        <SelectTrigger className="pl-9 h-12 bg-background border-border/60 hover:border-primary/50 focus:ring-primary/30 focus:border-primary transition-colors">
+                          <SelectValue />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -126,6 +163,8 @@ export default function Dashboard() {
                   </FormItem>
                 )}
               />
+
+              {/* Query input */}
               <FormField
                 control={form.control}
                 name="query"
@@ -133,143 +172,160 @@ export default function Dashboard() {
                   <FormItem className="flex-1">
                     <FormControl>
                       <div className="relative">
-                        <Search className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
                         <Input
-                          placeholder={
-                            form.watch("type") === "discord"
-                              ? "Enter Discord user ID or username..."
-                              : form.watch("type") === "breach"
-                              ? "Enter email, username, or domain..."
-                              : "Enter target identifier..."
-                          }
-                          className="pl-10 bg-background border-primary/20 focus:ring-primary h-12 text-md font-mono"
+                          placeholder={typeMeta.placeholder}
+                          className="pl-10 h-12 bg-background border-border/60 hover:border-border focus:ring-primary/30 focus:border-primary transition-colors font-mono"
                           {...field}
                         />
                       </div>
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* Execute button with glow */}
               <Button
                 type="submit"
-                className="h-12 px-8 bg-primary text-primary-foreground hover:bg-primary/90 font-bold tracking-wider"
+                className="h-12 px-8 bg-primary text-primary-foreground hover:bg-primary/90 font-bold tracking-wide shadow-[0_0_15px_hsl(var(--primary)/0.35)] hover:shadow-[0_0_25px_hsl(var(--primary)/0.55)] transition-all active:scale-95 flex items-center gap-2"
                 disabled={createSearch.isPending}
               >
-                {createSearch.isPending ? "INITIATING..." : "EXECUTE_SEARCH"}
+                <Activity className="w-5 h-5" />
+                {createSearch.isPending ? "Initiating..." : "Execute Search"}
               </Button>
             </form>
           </Form>
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-card/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <BarChart className="w-4 h-4" /> TOTAL SEARCHES
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingStats ? <Skeleton className="h-8 w-24" /> : (
-              <div className="text-3xl font-bold font-mono text-primary">{stats?.total || 0}</div>
-            )}
+      {/* Stats row — 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="bg-card/60 border-border/40">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Total Searches</p>
+              {isLoadingStats
+                ? <Skeleton className="h-9 w-24 mt-1" />
+                : <p className="text-3xl font-bold font-mono">{(stats?.total || 0).toLocaleString()}</p>
+              }
+            </div>
+            <div className="p-3 bg-primary/10 rounded-lg text-primary">
+              <Search className="w-6 h-6" />
+            </div>
           </CardContent>
         </Card>
-        <Card className="bg-card/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Activity className="w-4 h-4" /> RECENT (24H)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingStats ? <Skeleton className="h-8 w-24" /> : (
-              <div className="text-3xl font-bold font-mono">{stats?.recentCount || 0}</div>
-            )}
+
+        <Card className="bg-card/60 border-border/40">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Recent 24h</p>
+              {isLoadingStats
+                ? <Skeleton className="h-9 w-16 mt-1" />
+                : <p className="text-3xl font-bold font-mono">{(stats?.recentCount || 0).toLocaleString()}</p>
+              }
+            </div>
+            <div className="p-3 bg-emerald-500/10 rounded-lg text-emerald-400">
+              <Activity className="w-6 h-6" />
+            </div>
           </CardContent>
         </Card>
-        <Card className="col-span-2 bg-card/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Radar className="w-4 h-4" /> DISTRIBUTION
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {isLoadingStats ? <Skeleton className="h-8 w-full" /> : (
-              <div className="flex flex-wrap gap-4">
-                {Object.entries(stats?.byType || {}).map(([type, count]) => (
-                  <div key={type} className="flex items-center gap-2">
-                    <span className="text-xs uppercase text-muted-foreground">{type}:</span>
-                    <span className="text-sm font-mono font-bold">{count as number}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+
+        <Card className="bg-card/60 border-border/40">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-1">Top Target Type</p>
+              {isLoadingStats
+                ? <Skeleton className="h-9 w-20 mt-1" />
+                : <p className="text-3xl font-bold capitalize">{topType ?? "—"}</p>
+              }
+            </div>
+            <div className="p-3 bg-indigo-500/10 rounded-lg text-indigo-400">
+              <Globe className="w-6 h-6" />
+            </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Main content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        {/* Recent Operations */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold tracking-tight font-mono flex items-center gap-2">
-              <Clock className="w-5 h-5 text-primary" /> RECENT_OPERATIONS
-            </h2>
-            <Link href="/searches" className="text-sm text-primary hover:underline flex items-center gap-1">
-              View All <ArrowRight className="w-4 h-4" />
+            <h2 className="text-lg font-semibold text-foreground">Recent Operations</h2>
+            <Link href="/searches" className="text-sm text-primary hover:text-primary/80 font-medium flex items-center gap-1 transition-colors">
+              View All History <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
-          <div className="space-y-2">
-            {isLoadingSearches ? (
-              Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
-            ) : recentSearches?.length === 0 ? (
-              <Card className="bg-card/30 border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                  <AlertCircle className="w-8 h-8 mb-2 opacity-50" />
-                  <p>No operations recorded.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              recentSearches?.map((search) => {
+          {isLoadingSearches ? (
+            <div className="space-y-px rounded-xl overflow-hidden border border-border/40">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full rounded-none" />
+              ))}
+            </div>
+          ) : recentSearches?.length === 0 ? (
+            <Card className="bg-card/30 border-dashed border-border/40">
+              <CardContent className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <AlertCircle className="w-8 h-8 mb-2 opacity-50" />
+                <p>No operations recorded.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="rounded-xl border border-border/40 bg-card/60 overflow-hidden divide-y divide-border/30">
+              {recentSearches?.map((search) => {
                 const isActive = activeSearch?.id === search.id;
+                const meta = TYPE_META[search.type] ?? TYPE_META.domain;
                 return (
                   <div key={search.id}>
-                    <Card
-                      className={`border-border/50 transition-all cursor-pointer select-none ${
-                        isActive
-                          ? "bg-primary/5 border-primary/40 rounded-b-none"
-                          : "bg-card/50 hover:border-primary/30 hover:bg-card/80"
-                      }`}
+                    <div
                       onClick={() => handleRowClick(search as SearchItem)}
+                      className="p-4 flex items-center gap-4 hover:bg-muted/40 cursor-pointer transition-colors relative group select-none"
                     >
-                      <CardContent className="p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`p-2 rounded-md ${isActive ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
-                            {getIconForType(search.type)}
-                          </div>
-                          <div>
-                            <div className="font-mono font-medium text-lg">{search.query}</div>
-                            <div className="text-xs text-muted-foreground uppercase flex items-center gap-2">
-                              <span>{search.type}</span>
-                              <span>•</span>
-                              <span>{formatDistanceToNow(new Date(search.createdAt), { addSuffix: true })}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline" className={`uppercase font-mono text-xs ${getStatusColor(search.status)}`}>
-                            {search.status}
-                          </Badge>
-                          {isActive
-                            ? <ChevronDown className="w-4 h-4 text-primary" />
-                            : <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                          }
-                        </div>
-                      </CardContent>
-                    </Card>
+                      {/* Left accent bar on hover / active */}
+                      <div className={`absolute left-0 top-0 bottom-0 w-0.5 bg-primary transition-opacity ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`} />
 
-                    {isActive && activeSearch?.results && (
-                      <div className="border border-primary/40 border-t-0 rounded-b-lg overflow-hidden">
+                      {/* Type icon */}
+                      <div className={`p-2 rounded border transition-colors ${
+                        isActive
+                          ? "bg-primary/20 border-primary/40 text-primary"
+                          : "bg-background border-border/40 text-muted-foreground group-hover:border-primary/30 group-hover:text-primary"
+                      }`}>
+                        {meta.icon}
+                      </div>
+
+                      {/* Query + meta */}
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-mono text-sm font-semibold transition-colors truncate ${
+                          isActive ? "text-primary" : "text-foreground group-hover:text-primary"
+                        }`}>
+                          {search.query}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {meta.label} · {formatDistanceToNow(new Date(search.createdAt), { addSuffix: true })}
+                        </div>
+                      </div>
+
+                      {/* Status badge */}
+                      <StatusBadge status={search.status} />
+
+                      {/* Expand chevron */}
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
+                        isActive
+                          ? "bg-primary/20 text-primary"
+                          : "bg-background text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                      }`}>
+                        {isActive
+                          ? <ChevronUp className="w-4 h-4" />
+                          : <ChevronRight className="w-4 h-4" />
+                        }
+                      </div>
+                    </div>
+
+                    {/* Expanded panel */}
+                    {isActive && !!activeSearch?.results && (
+                      <div className="border-t border-primary/20 overflow-hidden">
                         <SearchResultPanel
                           search={activeSearch}
                           onClose={() => setActiveSearch(null)}
@@ -278,44 +334,44 @@ export default function Dashboard() {
                     )}
                   </div>
                 );
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </div>
 
+        {/* Trending Signals — read-only, no hover */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold tracking-tight font-mono flex items-center gap-2">
-            <Activity className="w-5 h-5 text-primary" /> TRENDING_SIGNALS
-          </h2>
-          <Card className="bg-card/50 border-border/50">
-            <CardContent className="p-0">
-              {isLoadingTrending ? (
-                <div className="p-4 space-y-4">
-                  {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-                </div>
-              ) : trendingTopics?.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground text-sm">No significant signals detected.</div>
-              ) : (
-                <div className="divide-y divide-border/50">
-                  {trendingTopics?.map((topic, i) => (
-                    <div key={i} className="p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center gap-3">
-                        <div className="text-xs font-mono text-muted-foreground w-4">{i + 1}.</div>
-                        <div>
-                          <div className="font-medium">{topic.topic}</div>
-                          <div className="text-xs text-muted-foreground">{topic.category || "General"}</div>
-                        </div>
-                      </div>
-                      <div className="text-xs font-mono bg-primary/10 text-primary px-2 py-1 rounded">
-                        {topic.count} hits
-                      </div>
+          <h2 className="text-lg font-semibold text-foreground">Trending Signals</h2>
+          <Card className="bg-card/60 border-border/40 overflow-hidden">
+            {isLoadingTrending ? (
+              <CardContent className="p-4 space-y-3">
+                {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+              </CardContent>
+            ) : trendingTopics?.length === 0 ? (
+              <CardContent className="p-8 text-center text-muted-foreground text-sm">
+                No significant signals detected.
+              </CardContent>
+            ) : (
+              <div className="divide-y divide-border/30">
+                {trendingTopics?.map((topic, i) => (
+                  <div key={i} className="p-3 flex items-center gap-3">
+                    <div className="w-7 text-center text-xs font-bold text-muted-foreground/50 flex-shrink-0">
+                      #{i + 1}
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">{topic.topic}</div>
+                      <div className="text-xs text-muted-foreground">{topic.category || "General"}</div>
+                    </div>
+                    <div className="text-xs font-mono bg-primary/10 text-primary px-2 py-0.5 rounded flex-shrink-0">
+                      {Number(topic.count).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
+
       </div>
     </div>
   );
