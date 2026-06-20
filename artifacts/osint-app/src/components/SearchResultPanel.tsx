@@ -42,89 +42,107 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
 
 function DiscordResult({ results }: { results: Record<string, unknown> }) {
   const flags = (results.publicFlags as string[]) ?? [];
-  const connected = (results.connectedAccounts as { type: string; name: string; verified: boolean }[]) ?? [];
-  const servers = (results.mutualServers as { id: string; name: string; memberCount: number }[]) ?? [];
+
+  if (results.error) {
+    return (
+      <div className="p-6 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 font-mono text-sm flex items-start gap-3">
+        <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
+        <div>
+          <div className="font-bold mb-1">Lookup Failed</div>
+          <div>{results.error as string}</div>
+        </div>
+      </div>
+    );
+  }
+
+  const avatarUrl = results.avatar as string | null;
+  const bannerUrl = results.banner as string | null;
 
   return (
     <div className="space-y-5">
+      {(avatarUrl || bannerUrl) && (
+        <div className="relative rounded-lg overflow-hidden border border-border/30 bg-background/40">
+          {bannerUrl && (
+            <img src={bannerUrl} alt="Banner" className="w-full h-24 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+          )}
+          <div className="flex items-end gap-4 px-4 pb-4 pt-2">
+            {avatarUrl && (
+              <img
+                src={avatarUrl}
+                alt="Avatar"
+                className="w-16 h-16 rounded-full border-2 border-primary/40 -mt-8 relative z-10 bg-background"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            )}
+            <div className="pb-1">
+              <div className="font-mono font-bold text-lg text-foreground">
+                {results.globalName as string || results.username as string}
+              </div>
+              <div className="text-sm text-muted-foreground font-mono">
+                @{results.username as string}
+                {results.discriminator && results.discriminator !== "0" && `#${results.discriminator}`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Section title="Account Identity" icon={<Zap className="w-4 h-4" />}>
-        <DataRow label="User ID" value={results.userId as string} />
+        <DataRow label="User ID (Snowflake)" value={results.userId as string} />
         <DataRow label="Username" value={results.username as string} />
-        <DataRow label="Global Name" value={(results.globalName as string) ?? "—"} />
-        <DataRow label="Discriminator" value={`#${results.discriminator}`} />
+        {results.globalName && <DataRow label="Display Name" value={results.globalName as string} />}
+        {results.discriminator && results.discriminator !== "0" && (
+          <DataRow label="Discriminator" value={`#${results.discriminator}`} />
+        )}
         <DataRow label="Account Created" value={new Date(results.createdAt as string).toUTCString()} />
-        <DataRow label="Locale" value={results.locale as string} />
       </Section>
 
       <Section title="Account Status">
-        <DataRow label="Verified" value={
-          results.verified
-            ? <span className="flex items-center gap-1 text-green-400"><CheckCircle className="w-3 h-3" /> Yes</span>
-            : <span className="flex items-center gap-1 text-red-400"><XCircle className="w-3 h-3" /> No</span>
-        } mono={false} />
-        <DataRow label="MFA Enabled" value={
-          results.mfaEnabled
-            ? <span className="flex items-center gap-1 text-green-400"><CheckCircle className="w-3 h-3" /> Yes</span>
-            : <span className="flex items-center gap-1 text-amber-400"><AlertTriangle className="w-3 h-3" /> No</span>
-        } mono={false} />
-        <DataRow label="Bot" value={(results.bot as boolean) ? "Yes" : "No"} />
-        <DataRow label="Nitro" value={results.nitro as string} />
-        {results.nitroSince && <DataRow label="Nitro Since" value={new Date(results.nitroSince as string).toDateString()} />}
-        {results.boostingSince && <DataRow label="Boosting Since" value={new Date(results.boostingSince as string).toDateString()} />}
-        <DataRow label="Premium Subscriptions" value={String(results.premiumGuildSubscriptions)} />
+        <DataRow label="Bot Account" value={(results.bot as boolean) ? "Yes" : "No"} />
+        <DataRow label="System Account" value={(results.system as boolean) ? "Yes" : "No"} />
+        <DataRow label="Nitro Tier" value={(results.nitro as string) || "None"} />
+        {results.bannerColor && (
+          <DataRow label="Banner Color" value={
+            <span className="flex items-center gap-2">
+              <span
+                className="inline-block w-4 h-4 rounded border border-border/50"
+                style={{ backgroundColor: results.bannerColor as string }}
+              />
+              {results.bannerColor as string}
+            </span>
+          } />
+        )}
+        {results.accentColor && (
+          <DataRow label="Accent Color" value={
+            <span className="flex items-center gap-2">
+              <span
+                className="inline-block w-4 h-4 rounded border border-border/50"
+                style={{ backgroundColor: results.accentColor as string }}
+              />
+              {results.accentColor as string}
+            </span>
+          } />
+        )}
+        {results.rawPublicFlags !== undefined && (
+          <DataRow label="Raw Flags (decimal)" value={String(results.rawPublicFlags)} />
+        )}
       </Section>
 
       {flags.length > 0 && (
-        <Section title="Public Flags">
+        <Section title="Public Badges & Flags">
           <div className="py-2 flex flex-wrap gap-2">
             {flags.map((f) => (
               <Badge key={f} variant="outline" className="font-mono text-xs bg-primary/10 text-primary border-primary/30">
-                {f}
+                {f.replace(/_/g, " ")}
               </Badge>
             ))}
           </div>
         </Section>
       )}
 
-      <Section title="Linked Accounts" icon={<Link className="w-4 h-4" />}>
-        {connected.length === 0 ? (
-          <div className="py-3 text-sm text-muted-foreground">No public connected accounts found.</div>
-        ) : (
-          connected.map((acc) => (
-            <DataRow
-              key={acc.type}
-              label={acc.type}
-              value={
-                <span className="flex items-center gap-2">
-                  {acc.name}
-                  {acc.verified && <CheckCircle className="w-3 h-3 text-green-400" />}
-                </span>
-              }
-              mono={false}
-            />
-          ))
-        )}
-      </Section>
-
-      <Section title="Potentially Exposed PII" icon={<Eye className="w-4 h-4" />}>
-        <DataRow label="Email" value={(results.email as string) ?? "Not found"} sensitive={!!results.email} />
-        <DataRow label="Phone" value={(results.phone as string) ?? "Not found"} sensitive={!!results.phone} />
-        <DataRow label="Banner Color" value={(results.bannerColor as string) ?? "—"} />
-      </Section>
-
-      {servers.length > 0 && (
-        <Section title="Mutual Servers">
-          {servers.map((s) => (
-            <DataRow key={s.id} label={s.name} value={`${s.memberCount.toLocaleString()} members`} />
-          ))}
-        </Section>
-      )}
-
-      <Section title="Relationship Graph">
-        <DataRow label="Friends" value={String((results.relationships as Record<string, number>)?.friends ?? 0)} />
-        <DataRow label="Pending Incoming" value={String((results.relationships as Record<string, number>)?.pendingIncoming ?? 0)} />
-        <DataRow label="Pending Outgoing" value={String((results.relationships as Record<string, number>)?.pendingOutgoing ?? 0)} />
-      </Section>
+      <div className="text-xs text-muted-foreground font-mono px-1 pt-1 border-t border-border/20">
+        Note: Discord's public API exposes limited data. Fields like MFA status, email, phone, mutual servers, and connected accounts are only visible to the account owner or require special OAuth scopes.
+      </div>
     </div>
   );
 }

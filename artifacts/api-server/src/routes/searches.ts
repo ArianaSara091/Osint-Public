@@ -13,7 +13,103 @@ import {
 
 const router: IRouter = Router();
 
-function buildOsintResults(query: string, type: string): object {
+const PUBLIC_FLAGS_MAP: Record<number, string> = {
+  1: "DISCORD_EMPLOYEE",
+  2: "PARTNERED_SERVER_OWNER",
+  4: "HYPESQUAD_EVENTS",
+  8: "BUG_HUNTER_LEVEL_1",
+  64: "HOUSE_BRAVERY",
+  128: "HOUSE_BRILLIANCE",
+  256: "HOUSE_BALANCE",
+  512: "EARLY_SUPPORTER",
+  1024: "TEAM_USER",
+  16384: "BUG_HUNTER_LEVEL_2",
+  65536: "VERIFIED_BOT",
+  131072: "EARLY_VERIFIED_BOT_DEVELOPER",
+  262144: "DISCORD_CERTIFIED_MODERATOR",
+  524288: "BOT_HTTP_INTERACTIONS",
+  4194304: "ACTIVE_DEVELOPER",
+};
+
+function decodePublicFlags(flags: number): string[] {
+  return Object.entries(PUBLIC_FLAGS_MAP)
+    .filter(([bit]) => (flags & Number(bit)) !== 0)
+    .map(([, name]) => name);
+}
+
+async function fetchDiscordUser(query: string): Promise<object> {
+  const now = new Date().toISOString();
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) {
+    return { error: "DISCORD_BOT_TOKEN not configured", queryTime: now };
+  }
+
+  const isNumericId = /^\d{17,20}$/.test(query.trim());
+  const lookupUrl = isNumericId
+    ? `https://discord.com/api/v10/users/${query.trim()}`
+    : `https://discord.com/api/v10/users/${query.trim()}`;
+
+  const res = await fetch(lookupUrl, {
+    headers: { Authorization: `Bot ${token}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as Record<string, unknown>;
+    if (res.status === 404) {
+      return { error: "User not found. Make sure you are using a numeric Snowflake ID.", queryTime: now };
+    }
+    if (res.status === 401) {
+      return { error: "Invalid bot token. Check your DISCORD_BOT_TOKEN secret.", queryTime: now };
+    }
+    return { error: `Discord API error ${res.status}: ${(body as Record<string,unknown>).message ?? "Unknown error"}`, queryTime: now };
+  }
+
+  const user = await res.json() as Record<string, unknown>;
+  const userId = user.id as string;
+  const createdAt = new Date(Number(BigInt(userId) >> BigInt(22)) + 1420070400000).toISOString();
+
+  const rawFlags = ((user.public_flags as number) ?? 0) | ((user.flags as number) ?? 0);
+  const publicFlags = decodePublicFlags(rawFlags);
+
+  const avatarHash = user.avatar as string | null;
+  const avatarUrl = avatarHash
+    ? `https://cdn.discordapp.com/avatars/${userId}/${avatarHash}.${avatarHash.startsWith("a_") ? "gif" : "png"}?size=256`
+    : `https://cdn.discordapp.com/embed/avatars/${Number(userId) % 5}.png`;
+
+  const bannerHash = user.banner as string | null;
+  const bannerUrl = bannerHash
+    ? `https://cdn.discordapp.com/banners/${userId}/${bannerHash}.${bannerHash.startsWith("a_") ? "gif" : "png"}?size=512`
+    : null;
+
+  const accentColor = user.accent_color as number | null;
+  const bannerColor = user.banner_color as string | null;
+
+  const premiumType = user.premium_type as number | undefined;
+  const nitroLabel = premiumType === 1 ? "Nitro Classic" : premiumType === 2 ? "Nitro" : premiumType === 3 ? "Nitro Basic" : "None";
+
+  return {
+    userId,
+    username: user.username as string,
+    globalName: (user.global_name as string | null) ?? null,
+    discriminator: user.discriminator as string,
+    createdAt,
+    avatar: avatarUrl,
+    avatarHash,
+    banner: bannerUrl,
+    bannerColor: bannerColor ?? null,
+    accentColor: accentColor !== null && accentColor !== undefined
+      ? `#${accentColor.toString(16).padStart(6, "0")}`
+      : null,
+    bot: (user.bot as boolean) ?? false,
+    system: (user.system as boolean) ?? false,
+    nitro: nitroLabel,
+    publicFlags,
+    rawPublicFlags: rawFlags,
+    queryTime: now,
+  };
+}
+
+async function buildOsintResults(query: string, type: string): Promise<object> {
   const now = new Date().toISOString();
   if (type === "domain") {
     return {
@@ -102,57 +198,7 @@ function buildOsintResults(query: string, type: string): object {
       queryTime: now,
     };
   } else if (type === "discord") {
-    const isNumericId = /^\d{17,20}$/.test(query);
-    const userId = isNumericId ? query : `${Math.floor(Math.random() * 900000000000000000) + 100000000000000000}`;
-    const createdAt = new Date(Number(BigInt(userId) >> BigInt(22)) + 1420070400000).toISOString();
-    const discriminators = ["0", "1337", "9999", "4242", "0001"];
-    const discriminator = discriminators[Math.floor(Math.random() * discriminators.length)];
-    const nitroTypes = ["None", "Nitro Classic", "Nitro", "Nitro Basic"];
-    const nitro = nitroTypes[Math.floor(Math.random() * nitroTypes.length)];
-    const flags = ["EARLY_SUPPORTER", "VERIFIED_DEVELOPER", "ACTIVE_DEVELOPER"];
-    const activeFlags = flags.filter(() => Math.random() > 0.6);
-    const mutualServers = [
-      { id: "802234567890123456", name: "OSINT Community", memberCount: 12847 },
-      { id: "701234567890123456", name: "Security Research Hub", memberCount: 5421 },
-      { id: "903456789012345678", name: "Dev Underground", memberCount: 34219 },
-    ].filter(() => Math.random() > 0.4);
-    return {
-      userId,
-      username: isNumericId ? `user_${userId.slice(-6)}` : query,
-      discriminator,
-      globalName: isNumericId ? null : query,
-      createdAt,
-      avatar: `https://cdn.discordapp.com/avatars/${userId}/a_fake_hash.webp`,
-      avatarHash: "a_fake_hash",
-      banner: Math.random() > 0.6 ? `https://cdn.discordapp.com/banners/${userId}/banner_hash.gif` : null,
-      bannerColor: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0")}`,
-      accentColor: Math.floor(Math.random() * 16777215),
-      bot: false,
-      system: false,
-      mfaEnabled: Math.random() > 0.4,
-      verified: Math.random() > 0.3,
-      nitro,
-      nitroSince: nitro !== "None" ? "2021-06-14T00:00:00.000Z" : null,
-      boostingSince: Math.random() > 0.5 ? "2022-11-01T00:00:00.000Z" : null,
-      publicFlags: activeFlags,
-      connectedAccounts: [
-        { type: "github", name: isNumericId ? `dev_${userId.slice(-4)}` : query, verified: true },
-        { type: "twitter", name: isNumericId ? `@user_${userId.slice(-5)}` : `@${query}`, verified: Math.random() > 0.5 },
-        { type: "spotify", name: isNumericId ? `User ${userId.slice(-6)}` : query, verified: true },
-      ].filter(() => Math.random() > 0.4),
-      mutualServers,
-      relationships: {
-        friends: Math.floor(Math.random() * 300),
-        pendingIncoming: Math.floor(Math.random() * 5),
-        pendingOutgoing: Math.floor(Math.random() * 3),
-        blocked: 0,
-      },
-      premiumGuildSubscriptions: Math.floor(Math.random() * 3),
-      locale: "en-US",
-      phone: Math.random() > 0.7 ? "+1 *** *** **89" : null,
-      email: Math.random() > 0.5 ? `${isNumericId ? `user${userId.slice(-6)}` : query}@gmail.com` : null,
-      queryTime: now,
-    };
+    return fetchDiscordUser(query);
   } else if (type === "breach") {
     const breachDatabases = [
       {
@@ -299,7 +345,7 @@ router.post("/searches", async (req, res): Promise<void> => {
     return;
   }
   const { query: searchQuery, type } = parsed.data;
-  const results = buildOsintResults(searchQuery, type);
+  const results = await buildOsintResults(searchQuery, type);
   const [search] = await db
     .insert(searchesTable)
     .values({ query: searchQuery, type, status: "completed", results })
