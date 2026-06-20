@@ -28,7 +28,7 @@ export function AppLayout({ children }: LayoutProps) {
         <div className="h-14 flex items-center px-4 border-b border-border/50">
           <div className="flex items-center gap-2 text-primary font-mono font-bold tracking-tight">
             <Database className="w-4 h-4" />
-            <span>SENTINEL_OSINT</span>
+            <span>BLACK_OSINT</span>
           </div>
         </div>
 

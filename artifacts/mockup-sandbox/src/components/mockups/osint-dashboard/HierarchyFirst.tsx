@@ -33,7 +33,7 @@ export function HierarchyFirst() {
         {/* HEADER / HERO SEARCH (Primary Visual Weight) */}
         <section className="space-y-6">
           <div className="space-y-2">
-            <h1 className="text-3xl font-light tracking-tight text-white">Sentinel OSINT</h1>
+            <h1 className="text-3xl font-light tracking-tight text-white">Black OSINT</h1>
             <p className="text-slate-500 text-sm">Initiate new investigation or query threat intelligence databases.</p>
           </div>
 

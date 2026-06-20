@@ -17,7 +17,7 @@ export default function Login() {
           </div>
           <div>
             <h1 className="text-2xl font-bold font-mono tracking-tight text-foreground">
-              SENTINEL_OSINT
+              BLACK_OSINT
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
               Open-source intelligence platform

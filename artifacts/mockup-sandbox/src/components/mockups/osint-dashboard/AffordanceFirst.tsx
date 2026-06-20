@@ -93,7 +93,7 @@ export function AffordanceFirst() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white mb-2 flex items-center gap-3">
             <Shield className="w-8 h-8 text-cyan-400" />
-            Sentinel OSINT
+            Black OSINT
           </h1>
           <p className="text-slate-400 text-sm">Target intelligence and threat hunting dashboard.</p>
         </div>

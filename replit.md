@@ -1,4 +1,4 @@
-# Sentinel OSINT
+# Black OSINT
 
 An OSINT (Open Source Intelligence) research tool for investigating domains, IPs, usernames, emails, phones, and public social posts.
 

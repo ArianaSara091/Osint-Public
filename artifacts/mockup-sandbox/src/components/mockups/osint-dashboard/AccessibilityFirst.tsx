@@ -79,7 +79,7 @@ export function AccessibilityFirst() {
         {/* Header */}
         <header className="border-b-2 border-slate-700 pb-6 mb-8">
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-white mb-2">
-            Sentinel OSINT
+            Black OSINT
           </h1>
           <p className="text-lg text-slate-300">
             Security Intelligence Dashboard
