@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 
 export const searchesTable = pgTable("searches", {
   id: serial("id").primaryKey(),
+  userId: text("user_id"),
   query: text("query").notNull(),
   type: text("type").notNull(),
   status: text("status").notNull().default("completed"),

@@ -4,10 +4,12 @@ import searchesRouter from "./searches";
 import targetsRouter from "./targets";
 import postsRouter from "./posts";
 import authRouter from "./auth";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
+router.use(adminRouter);
 router.use(healthRouter);
 router.use(searchesRouter);
 router.use(targetsRouter);

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { db, accessLogsTable } from "@workspace/db";
 
 const router = Router();
 
@@ -25,11 +26,7 @@ router.get("/auth/discord", (_req, res) => {
 
 router.get("/auth/discord/callback", async (req, res) => {
   const code = req.query["code"] as string | undefined;
-
-  if (!code) {
-    res.status(400).json({ error: "Missing code" });
-    return;
-  }
+  if (!code) { res.status(400).json({ error: "Missing code" }); return; }
 
   try {
     const tokenRes = await fetch("https://discord.com/api/oauth2/token", {
@@ -70,7 +67,7 @@ router.get("/auth/discord/callback", async (req, res) => {
       email?: string | null;
     };
 
-    req.session.user = {
+    const sessionUser = {
       id: discordUser.id,
       username: discordUser.username,
       global_name: discordUser.global_name ?? null,
@@ -80,6 +77,25 @@ router.get("/auth/discord/callback", async (req, res) => {
       email: discordUser.email ?? null,
     };
 
+    req.session.user = sessionUser;
+
+    const ip =
+      (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
+      req.ip ??
+      null;
+
+    const ua = (req.headers["user-agent"] as string | undefined) ?? null;
+
+    await db.insert(accessLogsTable).values({
+      userId: sessionUser.id,
+      username: sessionUser.username,
+      displayName: sessionUser.global_name ?? sessionUser.username,
+      avatar: sessionUser.avatar,
+      ipAddress: ip,
+      userAgent: ua,
+      action: "login",
+    });
+
     res.redirect("/");
   } catch (err) {
     req.log.error({ err }, "Discord OAuth error");
@@ -88,20 +104,14 @@ router.get("/auth/discord/callback", async (req, res) => {
 });
 
 router.get("/auth/me", (req, res) => {
-  if (!req.session.user) {
-    res.status(401).json({ error: "Not authenticated" });
-    return;
-  }
-  res.json(req.session.user);
+  if (!req.session.user) { res.status(401).json({ error: "Not authenticated" }); return; }
+  const OWNER_ID = process.env["OWNER_DISCORD_ID"];
+  res.json({ ...req.session.user, isOwner: !!OWNER_ID && req.session.user.id === OWNER_ID });
 });
 
 router.post("/auth/logout", (req, res) => {
   req.session.destroy((err) => {
-    if (err) {
-      req.log.error({ err }, "Session destroy error");
-      res.status(500).json({ error: "Logout failed" });
-      return;
-    }
+    if (err) { req.log.error({ err }, "Session destroy error"); res.status(500).json({ error: "Logout failed" }); return; }
     res.json({ ok: true });
   });
 });

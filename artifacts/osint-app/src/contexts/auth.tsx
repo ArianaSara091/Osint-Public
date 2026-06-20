@@ -6,6 +6,7 @@ export type AuthUser = {
   global_name: string | null;
   avatar: string | null;
   email: string | null;
+  isOwner: boolean;
 };
 
 type AuthState =
@@ -26,15 +27,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetch("/api/auth/me", { credentials: "include" })
       .then((r) => {
-        if (r.status === 401) {
-          setState({ status: "unauthenticated" });
-          return null;
-        }
+        if (r.status === 401) { setState({ status: "unauthenticated" }); return null; }
         return r.json() as Promise<AuthUser>;
       })
-      .then((user) => {
-        if (user) setState({ status: "authenticated", user });
-      })
+      .then((user) => { if (user) setState({ status: "authenticated", user }); })
       .catch(() => setState({ status: "unauthenticated" }));
   }, []);
 
