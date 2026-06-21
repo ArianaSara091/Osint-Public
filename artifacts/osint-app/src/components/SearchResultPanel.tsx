@@ -1,3 +1,9 @@
+const safe = (v: unknown): React.ReactNode => {
+  if (v === null || v === undefined) return "—";
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "object") return JSON.stringify(v);
+  return String(v);
+};
 import { X, Shield, Zap, Globe, Server, User, Mail, Phone, AlertTriangle, CheckCircle, XCircle, Link, Key, Eye } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
