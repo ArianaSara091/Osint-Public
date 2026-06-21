@@ -1,3 +1,5 @@
+import React from "react";
+
 const safe = (v: unknown): React.ReactNode => {
   if (v === null || v === undefined) return "—";
   if (typeof v === "boolean") return v ? "Yes" : "No";
@@ -86,7 +88,7 @@ function DiscordResult({ results }: { results: Record<string, unknown> }) {
               </div>
               <div className="text-sm text-muted-foreground font-mono">
                 @{results.username as string}
-                {results.discriminator && results.discriminator !== "0" && `#${results.discriminator}`}
+                {!!results.discriminator && results.discriminator !== "0" && `#${String(results.discriminator)}`}
               </div>
             </div>
           </div>
@@ -96,9 +98,9 @@ function DiscordResult({ results }: { results: Record<string, unknown> }) {
       <Section title="Account Identity" icon={<Zap className="w-4 h-4" />}>
         <DataRow label="User ID (Snowflake)" value={results.userId as string} />
         <DataRow label="Username" value={results.username as string} />
-        {results.globalName && <DataRow label="Display Name" value={results.globalName as string} />}
-        {results.discriminator && results.discriminator !== "0" && (
-          <DataRow label="Discriminator" value={`#${results.discriminator}`} />
+        {!!results.globalName && <DataRow label="Display Name" value={results.globalName as string} />}
+        {!!results.discriminator && results.discriminator !== "0" && (
+          <DataRow label="Discriminator" value={`#${String(results.discriminator)}`} />
         )}
         <DataRow label="Account Created" value={new Date(results.createdAt as string).toUTCString()} />
       </Section>
@@ -107,7 +109,7 @@ function DiscordResult({ results }: { results: Record<string, unknown> }) {
         <DataRow label="Bot Account" value={(results.bot as boolean) ? "Yes" : "No"} />
         <DataRow label="System Account" value={(results.system as boolean) ? "Yes" : "No"} />
         <DataRow label="Nitro Tier" value={(results.nitro as string) || "None"} />
-        {results.bannerColor && (
+        {!!results.bannerColor && (
           <DataRow label="Banner Color" value={
             <span className="flex items-center gap-2">
               <span
@@ -118,7 +120,7 @@ function DiscordResult({ results }: { results: Record<string, unknown> }) {
             </span>
           } />
         )}
-        {results.accentColor && (
+        {!!results.accentColor && (
           <DataRow label="Accent Color" value={
             <span className="flex items-center gap-2">
               <span
@@ -185,8 +187,8 @@ function BreachResult({ results }: { results: Record<string, unknown> }) {
       </div>
 
       <Section title="Breach Timeline" icon={<Shield className="w-4 h-4" />}>
-        {results.firstSeen && <DataRow label="First Seen" value={results.firstSeen as string} />}
-        {results.lastSeen && <DataRow label="Last Seen" value={results.lastSeen as string} />}
+        {!!results.firstSeen && <DataRow label="First Seen" value={results.firstSeen as string} />}
+        {!!results.lastSeen && <DataRow label="Last Seen" value={results.lastSeen as string} />}
       </Section>
 
       {breaches.length === 0 ? (
@@ -225,7 +227,7 @@ function BreachResult({ results }: { results: Record<string, unknown> }) {
                   value={(breach.dataClasses as string[]).join(", ")}
                   mono={false}
                 />
-                {breach.sampleData && (
+                {!!breach.sampleData && (
                   <div className="mt-2 pt-2 border-t border-border/30 space-y-1">
                     {Object.entries(breach.sampleData as Record<string, unknown>)
                       .filter(([, v]) => v !== null && v !== undefined)

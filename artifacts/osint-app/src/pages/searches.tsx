@@ -194,7 +194,7 @@ export default function Searches() {
                   </CardContent>
                 </Card>
 
-                {isActive && activeSearch?.results && (
+                {isActive && activeSearch?.results != null && (
                   <div className="border border-primary/40 border-t-0 rounded-b-lg overflow-hidden">
                     <SearchResultPanel
                       search={activeSearch}

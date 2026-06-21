@@ -7,11 +7,16 @@ const DISCORD_CLIENT_ID = process.env["DISCORD_CLIENT_ID"]!;
 const DISCORD_CLIENT_SECRET = process.env["DISCORD_CLIENT_SECRET"]!;
 
 function getCallbackUrl(): string {
+  // Render provides RENDER_EXTERNAL_URL automatically
+  if (process.env["RENDER_EXTERNAL_URL"]) {
+    return `${process.env["RENDER_EXTERNAL_URL"]}/api/auth/discord/callback`;
+  }
+  // Replit dev/prod domain
   const domains = process.env["REPLIT_DOMAINS"];
   const domain = domains?.split(",")[0];
-  return domain
-    ? `https://${domain}/api/auth/discord/callback`
-    : "http://localhost:5000/api/auth/discord/callback";
+  if (domain) return `https://${domain}/api/auth/discord/callback`;
+  // Local fallback
+  return `http://localhost:${process.env["PORT"] ?? 5000}/api/auth/discord/callback`;
 }
 
 router.get("/auth/discord", (_req, res) => {
@@ -81,9 +86,7 @@ router.get("/auth/discord/callback", async (req, res) => {
 
     const ip =
       (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ??
-      req.ip ??
-      null;
-
+      req.ip ?? null;
     const ua = (req.headers["user-agent"] as string | undefined) ?? null;
 
     await db.insert(accessLogsTable).values({
