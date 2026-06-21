@@ -7,9 +7,17 @@ const DISCORD_CLIENT_ID = process.env["DISCORD_CLIENT_ID"]!;
 const DISCORD_CLIENT_SECRET = process.env["DISCORD_CLIENT_SECRET"]!;
 
 function getCallbackUrl(): string {
-  // Render provides RENDER_EXTERNAL_URL automatically
+  // Generic override — set PUBLIC_URL secret on any host
+  if (process.env["PUBLIC_URL"]) {
+    return `${process.env["PUBLIC_URL"]}/api/auth/discord/callback`;
+  }
+  // Render
   if (process.env["RENDER_EXTERNAL_URL"]) {
     return `${process.env["RENDER_EXTERNAL_URL"]}/api/auth/discord/callback`;
+  }
+  // Fly.io
+  if (process.env["FLY_APP_NAME"]) {
+    return `https://${process.env["FLY_APP_NAME"]}.fly.dev/api/auth/discord/callback`;
   }
   // Replit dev/prod domain
   const domains = process.env["REPLIT_DOMAINS"];

@@ -1,0 +1,6 @@
+.git
+.local
+attached_assets
+**/node_modules
+**/.tsbuildinfo
+**/dist
